@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WA Watch — Washington State Hazard Dashboard</title>
+<meta name="description" content="Live, zip-code-specific weather hazard warnings for Washington State: wind, snow, flooding, heat, and cold." />
+<meta name="theme-color" content="#0f1720" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0f1720;
+    --surface:#161f2a;
+    --surface-raised:#1c2733;
+    --line:#2a3644;
+    --text:#eef2f5;
+    --muted:#8fa0ac;
+    --muted-dim:#647380;
+    --brand:#e0b23e;
+    --warning:#e0393e;
+    --watch:#f0883e;
+    --advisory:#e0b23e;
+    --statement:#4f8fd1;
+    --clear:#3fae6a;
+    --wind:#4f8fd1;
+    --snow:#c9d6e0;
+    --rain:#3f8fae;
+    --cold:#7fb8e0;
+    --heat:#e06b3e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Public Sans', system-ui, sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono', ui-monospace, monospace;}
+  a{color:inherit}
+  .wrap{max-width:840px;margin:0 auto;padding:0 20px;}
+
+  /* Header / instrument bar */
+  header.bar{
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, var(--surface), var(--bg));
+    position:sticky; top:0; z-index:10;
+  }
+  .bar-inner{
+    max-width:840px;margin:0 auto;padding:14px 20px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .wordmark{
+    display:flex;align-items:baseline;gap:8px;font-weight:800;font-size:19px;letter-spacing:-0.01em;
+    margin-right:auto;
+  }
+  .wordmark .dot{width:9px;height:9px;border-radius:50%;background:var(--clear);display:inline-block;box-shadow:0 0 0 3px rgba(63,174,106,0.18);}
+  .wordmark .dot.warn{background:var(--warning);box-shadow:0 0 0 3px rgba(224,57,62,0.2);}
+  .wordmark small{font-weight:500;color:var(--muted);font-size:12px;}
+
+  .zipform{display:flex;gap:8px;}
+  .zipform input{
+    background:var(--surface-raised);border:1px solid var(--line);color:var(--text);
+    border-radius:6px;padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:15px;
+    width:120px;letter-spacing:0.03em;
+  }
+  .zipform input::placeholder{color:var(--muted-dim)}
+  .zipform button{
+    background:var(--brand);color:#181209;border:none;border-radius:6px;
+    padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  .zipform button:hover{filter:brightness(1.08)}
+  .zipform button:disabled{opacity:.5;cursor:default}
+
+  main{max-width:840px;margin:0 auto;padding:28px 20px 80px;}
+
+  .status-msg{color:var(--muted);font-size:14px;padding:10px 0;}
+  .status-msg.error{color:var(--warning)}
+
+  /* Hero status tile */
+  .hero{
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:28px;
+    background:var(--surface);
+  }
+  .hero-top{padding:22px 22px 18px;}
+  .hero-place{color:var(--muted);font-size:13px;margin:0 0 6px;text-transform:none;}
+  .hero-headline{font-size:26px;font-weight:800;letter-spacing:-0.01em;margin:0 0 6px;}
+  .hero-sub{color:var(--muted);font-size:14px;margin:0;}
+  .hero-clear .hero-headline{color:var(--clear)}
+  .hero-active .hero-headline{color:var(--warning)}
+
+  section{margin-bottom:34px;}
+  h2{
+    font-size:13px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);
+    font-weight:700;margin:0 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px;
+  }
+
+  /* Alert cards */
+  .alert-card{
+    border:1px solid var(--line);border-left-width:4px;border-radius:6px;
+    background:var(--surface);padding:14px 16px;margin-bottom:10px;
+  }
+  .alert-card.Warning{border-left-color:var(--warning)}
+  .alert-card.Watch{border-left-color:var(--watch)}
+  .alert-card.Advisory{border-left-color:var(--advisory)}
+  .alert-card.Statement{border-left-color:var(--statement)}
+  .alert-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;}
+  .alert-event{font-weight:700;font-size:15.5px;}
+  .alert-time{color:var(--muted-dim);font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+  .alert-headline{color:var(--muted);font-size:13.5px;margin:6px 0 0;}
+  .alert-detail{font-size:13.5px;color:var(--muted);margin-top:8px;display:none;white-space:pre-wrap;}
+  .alert-card.open .alert-detail{display:block}
+  .alert-toggle{background:none;border:none;color:var(--statement);font-size:12.5px;font-weight:600;cursor:pointer;padding:8px 0 0;font-family:inherit;}
+  .all-clear-card{
+    border:1px solid var(--line);border-left:4px solid var(--clear);border-radius:6px;
+    background:var(--surface);padding:14px 16px;color:var(--muted);font-size:14px;
+  }
+
+  /* Forecast strip */
+  .forecast-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;}
+  .fc-card{
+    flex:0 0 130px;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+    padding:12px 12px 14px;
+  }
+  .fc-day{font-weight:700;font-size:13px;margin-bottom:2px;}
+  .fc-when{color:var(--muted-dim);font-size:11px;margin-bottom:10px;}
+  .fc-temp{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;}
+  .fc-short{color:var(--muted);font-size:12px;margin:6px 0 10px;min-height:32px;}
+  .fc-row{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted-dim);font-family:'JetBrains Mono',monospace;padding-top:4px;border-top:1px dashed var(--line);}
+  .fc-row span:last-child{color:var(--text)}
+
+  /* Hazard gauges */
+  .gauge-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:520px){.gauge-grid{grid-template-columns:1fr}}
+  .gauge{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:14px 16px;}
+  .gauge-label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .gauge-label .name{font-weight:700;font-size:13.5px;}
+  .gauge-label .val{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--muted);}
+  .gauge-bar{height:8px;border-radius:4px;background:var(--surface-raised);overflow:hidden;}
+  .gauge-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+  .gauge-note{color:var(--muted-dim);font-size:12px;margin-top:8px;}
+
+  /* Notify section */
+  .notify-box{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:18px 20px;}
+  .notify-box p{color:var(--muted);font-size:14px;margin:0 0 14px;}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .btn{
+    border:1px solid var(--line);background:var(--surface-raised);color:var(--text);
+    padding:10px 16px;border-radius:6px;font-weight:600;font-size:13.5px;cursor:pointer;font-family:inherit;
+  }
+  .btn.primary{background:var(--brand);color:#181209;border-color:var(--brand);}
+  .btn:disabled{opacity:.5;cursor:default}
+  a.btn{display:inline-block;text-decoration:none;}
+  .notify-state{font-size:12.5px;color:var(--muted-dim);margin-top:10px;font-family:'JetBrains Mono',monospace;}
+  .sms-note{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+    color:var(--muted-dim);font-size:12.5px;
+  }
+  .sms-note a{color:var(--statement);text-decoration:none;font-weight:600;}
+
+  footer{border-top:1px solid var(--line);padding:22px 20px 40px;color:var(--muted-dim);font-size:12px;}
+  footer a{color:var(--muted);}
+
+  .skeleton{color:var(--muted-dim);font-size:13px;padding:20px 0;}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-inner">
+    <div class="wordmark">
+      <span class="dot" id="statusDot"></span>
+      WA Watch <small>hazard dashboard for Washington State</small>
+    </div>
+    <form class="zipform" id="zipForm">
+      <input id="zipInput" inputmode="numeric" maxlength="5" placeholder="98101" aria-label="Washington ZIP code" />
+      <button type="submit" id="zipSubmit">Check</button>
+    </form>
+  </div>
+</header>
+
+<main>
+  <div id="statusMsg" class="status-msg">Enter a Washington ZIP code above to see live conditions and active alerts for your location.</div>
+
+  <div id="app" style="display:none;">
+
+    <div class="hero" id="hero">
+      <div class="hero-top">
+        <p class="hero-place" id="heroPlace">—</p>
+        <p class="hero-headline" id="heroHeadline">Loading…</p>
+        <p class="hero-sub" id="heroSub"></p>
+      </div>
+    </div>
+
+    <section>
+      <h2>Active alerts</h2>
+      <div id="alertsList"></div>
+    </section>
+
+    <section>
+      <h2>7-day outlook</h2>
+      <div class="forecast-scroll" id="forecastStrip"></div>
+    </section>
+
+    <section>
+      <h2>Hazard readouts — next 48 hours</h2>
+      <div class="gauge-grid" id="gaugeGrid"></div>
+    </section>
+
+    <section>
+      <h2>More Seattle-area tools from UW</h2>
+      <div class="notify-box">
+        <p style="margin-bottom:10px;">
+          Two live model-based tools from the University of Washington Department of
+          Atmospheric Sciences go deeper on the two hazards Seattle worries about most —
+          worth bookmarking alongside this dashboard.
+        </p>
+        <div class="btn-row">
+          <a class="btn" href="https://a.atmos.washington.edu/SNOWWATCH/" target="_blank" rel="noopener">UW SnowWatch →</a>
+          <a class="btn" href="https://a.atmos.washington.edu/SCL/" target="_blank" rel="noopener">UW WindWatch →</a>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Get alerts</h2>
+      <div class="notify-box">
+        <p>Turn on browser notifications to get pushed alerts for <strong id="notifyZipLabel">this ZIP</strong> while WA Watch is open in a tab, or installed to your home screen. New NWS alerts are checked every 5 minutes.</p>
+        <div class="btn-row">
+          <button class="btn primary" id="enableNotif">Enable browser alerts</button>
+          <button class="btn" id="installBtn" style="display:none;">Add to home screen</button>
+        </div>
+        <div class="notify-state" id="notifyState"></div>
+        <div class="sms-note">
+          Want a text message even when your phone is asleep? That needs a small always-on backend — a
+          static site by itself can't send SMS. This project ships a free option built on GitHub Actions
+          + your carrier's email-to-text gateway. See <a href="README.md">README.md</a> for setup, or use
+          a paid provider like Twilio for more reliable delivery.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    Data: <a href="https://www.weather.gov/documentation/services-web-api" target="_blank" rel="noopener">National Weather Service API</a> (api.weather.gov) ·
+    ZIP geocoding: <a href="https://www.zippopotam.us/" target="_blank" rel="noopener">Zippopotam.us</a> ·
+    Also see UW's <a href="https://a.atmos.washington.edu/SNOWWATCH/" target="_blank" rel="noopener">SnowWatch</a> and
+    <a href="https://a.atmos.washington.edu/SCL/" target="_blank" rel="noopener">WindWatch</a>.
+    This is a community tool, not an official emergency system — always follow guidance from local officials and the NWS.
+    Inspired by <a href="https://cliffmass.blogspot.com/" target="_blank" rel="noopener">Cliff Mass's proposal</a> for a Seattle-area environmental warning system.
+  </footer>
+</main>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const statusMsg = $('statusMsg');
+  const app = $('app');
+  const statusDot = $('statusDot');
+
+  const UA = { headers: { 'Accept': 'application/geo+json' } };
+  let pollTimer = null;
+
+  function setStatus(msg, isError){
+    statusMsg.style.display = 'block';
+    statusMsg.textContent = msg;
+    statusMsg.className = 'status-msg' + (isError ? ' error' : '');
+  }
+  function clearStatus(){ statusMsg.style.display = 'none'; }
+
+  async function geocodeZip(zip){
+    const r = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if(!r.ok) throw new Error('ZIP not found');
+    const d = await r.json();
+    const place = d.places[0];
+    return {
+      lat: parseFloat(place.latitude),
+      lon: parseFloat(place.longitude),
+      city: place['place name'],
+      state: place['state abbreviation']
+    };
+  }
+
+  async function getPoint(lat, lon){
+    const r = await fetch(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`, UA);
+    if(!r.ok) throw new Error('NWS point lookup failed');
+    return r.json();
+  }
+
+  async function getAlerts(lat, lon){
+    const r = await fetch(`https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lon.toFixed(4)}`, UA);
+    if(!r.ok) throw new Error('Alerts fetch failed');
+    return r.json();
+  }
+
+  async function getForecast(url){
+    const r = await fetch(url, UA);
+    if(!r.ok) throw new Error('Forecast fetch failed');
+    return r.json();
+  }
+
+  function severityClass(a){
+    const ev = (a.event || '').toLowerCase();
+    if(ev.includes('warning')) return 'Warning';
+    if(ev.includes('watch')) return 'Watch';
+    if(ev.includes('advisory')) return 'Advisory';
+    return 'Statement';
+  }
+
+  function fmtTime(iso){
+    try{
+      return new Date(iso).toLocaleString('en-US', { weekday:'short', hour:'numeric', minute:'2-digit' });
+    }catch(e){ return ''; }
+  }
+
+  function renderHero(place, alerts){
+    const hero = $('hero');
+    $('heroPlace').textContent = `${place.city}, WA · ${place.zip}`;
+    if(alerts.features.length === 0){
+      hero.className = 'hero hero-clear';
+      $('heroHeadline').textContent = 'No active alerts';
+      $('heroSub').textContent = 'Conditions are currently normal for this location.';
+      statusDot.className = 'dot';
+    } else {
+      hero.className = 'hero hero-active';
+      const top = alerts.features[0].properties;
+      $('heroHeadline').textContent = `${alerts.features.length} active alert${alerts.features.length>1?'s':''}: ${top.event}`;
+      $('heroSub').textContent = top.headline || '';
+      statusDot.className = 'dot warn';
+    }
+  }
+
+  function renderAlerts(alerts){
+    const list = $('alertsList');
+    list.innerHTML = '';
+    if(alerts.features.length === 0){
+      const div = document.createElement('div');
+      div.className = 'all-clear-card';
+      div.textContent = 'No watches, warnings, or advisories are currently in effect for this ZIP code.';
+      list.appendChild(div);
+      return;
+    }
+    alerts.features
+      .sort((a,b) => new Date(b.properties.sent) - new Date(a.properties.sent))
+      .forEach(f => {
+        const p = f.properties;
+        const card = document.createElement('div');
+        card.className = `alert-card ${severityClass(p)}`;
+        card.innerHTML = `
+          <div class="alert-top">
+            <div class="alert-event">${p.event}</div>
+            <div class="alert-time">until ${p.expires ? fmtTime(p.expires) : 'further notice'}</div>
+          </div>
+          <div class="alert-headline">${p.headline || ''}</div>
+          <button class="alert-toggle">Show details</button>
+          <div class="alert-detail">${(p.description || '').trim()}${p.instruction ? '\n\nWhat to do:\n' + p.instruction.trim() : ''}</div>
+        `;
+        card.querySelector('.alert-toggle').addEventListener('click', () => {
+          card.classList.toggle('open');
+          card.querySelector('.alert-toggle').textContent = card.classList.contains('open') ? 'Hide details' : 'Show details';
+        });
+        list.appendChild(card);
+      });
+  }
+
+  function renderForecast(forecast){
+    const strip = $('forecastStrip');
+    strip.innerHTML = '';
+    forecast.properties.periods.slice(0, 10).forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'fc-card';
+      card.innerHTML = `
+        <div class="fc-day">${p.name.length > 10 ? p.name.slice(0,3) : p.name}</div>
+        <div class="fc-when">${p.isDaytime ? 'Day' : 'Night'}</div>
+        <div class="fc-temp">${p.temperature}°${p.temperatureUnit}</div>
+        <div class="fc-short">${p.shortForecast}</div>
+        <div class="fc-row"><span>Wind</span><span>${p.windSpeed}</span></div>
+        <div class="fc-row"><span>Precip</span><span>${p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value != null ? p.probabilityOfPrecipitation.value + '%' : '—'}</span></div>
+      `;
+      strip.appendChild(card);
+    });
+  }
+
+  function parseWindMph(str){
+    const m = (str || '').match(/(\d+)(?:\s*to\s*(\d+))?/);
+    if(!m) return 0;
+    return m[2] ? parseInt(m[2],10) : parseInt(m[1],10);
+  }
+
+  function renderGauges(forecast){
+    const periods = forecast.properties.periods.slice(0, 4); // next ~48h
+    let maxWind = 0, maxPrecip = 0, minTemp = Infinity, maxTemp = -Infinity;
+    let snowMention = false;
+    periods.forEach(p => {
+      maxWind = Math.max(maxWind, parseWindMph(p.windSpeed));
+      if(p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value != null){
+        maxPrecip = Math.max(maxPrecip, p.probabilityOfPrecipitation.value);
+      }
+      minTemp = Math.min(minTemp, p.temperature);
+      maxTemp = Math.max(maxTemp, p.temperature);
+      if(/snow/i.test(p.shortForecast)) snowMention = true;
+    });
+
+    const gauges = [
+      {
+        name: 'Wind gusts', color: 'var(--wind)', value: maxWind, unit: 'mph',
+        pct: Math.min(100, (maxWind/60)*100),
+        note: maxWind >= 50 ? 'High wind risk — secure loose objects, expect outages.' :
+              maxWind >= 35 ? 'Elevated wind — watch for falling branches.' : 'Normal range.'
+      },
+      {
+        name: 'Snow risk', color: 'var(--snow)', value: snowMention ? 'Mentioned' : 'None', unit: '',
+        pct: snowMention ? 70 : 5,
+        note: snowMention ? 'Snow appears in the forecast text — check timing above.' : 'No snow mentioned in current forecast.'
+      },
+      {
+        name: 'Rain / flood risk', color: 'var(--rain)', value: maxPrecip, unit: '%',
+        pct: maxPrecip,
+        note: maxPrecip >= 70 ? 'High chance of rain — check drains and gutters.' :
+              maxPrecip >= 40 ? 'Moderate chance of rain.' : 'Low chance of rain.'
+      },
+      {
+        name: 'Cold exposure', color: 'var(--cold)', value: minTemp, unit: '°F',
+        pct: Math.max(0, Math.min(100, (32 - minTemp) * 4 + 10)),
+        note: minTemp <= 32 ? 'Below freezing — exposure risk for people outdoors.' :
+              minTemp <= 40 ? 'Chilly overnight lows.' : 'Normal range.'
+      },
+      {
+        name: 'Heat risk', color: 'var(--heat)', value: maxTemp, unit: '°F',
+        pct: Math.max(0, Math.min(100, (maxTemp - 70) * 2.5)),
+        note: maxTemp >= 90 ? 'Hot — check on vulnerable neighbors, stay hydrated.' :
+              maxTemp >= 80 ? 'Warm conditions.' : 'Normal range.'
+      }
+    ];
+
+    const grid = $('gaugeGrid');
+    grid.innerHTML = '';
+    gauges.forEach(g => {
+      const el = document.createElement('div');
+      el.className = 'gauge';
+      el.innerHTML = `
+        <div class="gauge-label"><span class="name">${g.name}</span><span class="val">${g.value}${g.unit}</span></div>
+        <div class="gauge-bar"><div class="gauge-fill" style="width:${g.pct}%;background:${g.color}"></div></div>
+        <div class="gauge-note">${g.note}</div>
+      `;
+      grid.appendChild(el);
+    });
+  }
+
+  // ---- Notifications ----
+  function getSeen(zip){
+    try{ return JSON.parse(localStorage.getItem('wa-watch-seen-' + zip) || '[]'); }catch(e){ return []; }
+  }
+  function setSeen(zip, ids){
+    localStorage.setItem('wa-watch-seen-' + zip, JSON.stringify(ids));
+  }
+
+  async function pollForNewAlerts(place, zip){
+    try{
+      const alerts = await getAlerts(place.lat, place.lon);
+      const seen = getSeen(zip);
+      const currentIds = alerts.features.map(f => f.id);
+      const newOnes = alerts.features.filter(f => !seen.includes(f.id));
+      if(newOnes.length && Notification.permission === 'granted'){
+        newOnes.forEach(f => {
+          new Notification(`WA Watch: ${f.properties.event}`, {
+            body: f.properties.headline || `New alert for ${place.city}, WA`,
+            icon: 'icons/icon-192.png'
+          });
+        });
+      }
+      setSeen(zip, currentIds);
+    }catch(e){ /* silent fail on poll */ }
+  }
+
+  function startPolling(place, zip){
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(() => pollForNewAlerts(place, zip), 5 * 60 * 1000);
+  }
+
+  $('enableNotif').addEventListener('click', async () => {
+    if(!('Notification' in window)){
+      $('notifyState').textContent = 'Notifications are not supported in this browser.';
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    $('notifyState').textContent = perm === 'granted'
+      ? 'Browser alerts enabled. Keep this tab or installed app open to receive them.'
+      : 'Permission not granted — you can change this in your browser/site settings.';
+  });
+
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    $('installBtn').style.display = 'inline-block';
+  });
+  $('installBtn').addEventListener('click', async () => {
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    $('installBtn').style.display = 'none';
+  });
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  // ---- Main flow ----
+  async function loadZip(zip){
+    clearStatus();
+    setStatus('Loading conditions for ' + zip + '…');
+    app.style.display = 'none';
+    try{
+      const place = await geocodeZip(zip);
+      if(place.state !== 'WA'){
+        setStatus(`${zip} is in ${place.state}, not Washington. WA Watch currently covers Washington State ZIP codes only.`, true);
+        return;
+      }
+      place.zip = zip;
+      const point = await getPoint(place.lat, place.lon);
+      const [alerts, forecast] = await Promise.all([
+        getAlerts(place.lat, place.lon),
+        getForecast(point.properties.forecast)
+      ]);
+
+      clearStatus();
+      app.style.display = 'block';
+      renderHero(place, alerts);
+      renderAlerts(alerts);
+      renderForecast(forecast);
+      renderGauges(forecast);
+      $('notifyZipLabel').textContent = `${place.city}, WA (${zip})`;
+
+      setSeen(zip, alerts.features.map(f => f.id));
+      startPolling(place, zip);
+
+      localStorage.setItem('wa-watch-last-zip', zip);
+      history.replaceState(null, '', '#' + zip);
+    }catch(err){
+      setStatus('Could not load data for that ZIP code. Double check it and try again.', true);
+    }
+  }
+
+  $('zipForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const zip = $('zipInput').value.trim();
+    if(!/^\d{5}$/.test(zip)){
+      setStatus('Enter a valid 5-digit ZIP code.', true);
+      return;
+    }
+    loadZip(zip);
+  });
+
+  // Restore last ZIP
+  const hashZip = location.hash.replace('#','');
+  const lastZip = hashZip && /^\d{5}$/.test(hashZip) ? hashZip : localStorage.getItem('wa-watch-last-zip');
+  if(lastZip){
+    $('zipInput').value = lastZip;
+    loadZip(lastZip);
+  }
+})();
+</script>
+</body>
+</html>
