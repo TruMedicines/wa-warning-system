@@ -2,8 +2,7 @@
 
 A live, ZIP-code-specific hazard dashboard for Washington State — active National Weather
 Service alerts, a 7-day outlook, and plain-language readouts for wind, snow, rain/flood,
-cold, and heat risk. Inspired by [Cliff Mass's proposal](https://cliffmass.blogspot.com/)
-for a Seattle-area environmental warning system.
+cold, and heat risk. Inspired by the need for a Seattle-area environmental warning system.
 
 Works on desktop, iPhone, and Android — it's a website, not a native app store app, but it
 can be "installed" to a phone's home screen and used just like one.
