@@ -13,8 +13,8 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Only cache the app shell. Never cache live API calls (weather.gov / zippopotam)
-// so alerts and forecasts are always fresh.
+// Only cache the app shell. Never cache live API calls so alerts/forecasts/gauges/etc.
+// are always fresh.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return; // let API calls pass through untouched

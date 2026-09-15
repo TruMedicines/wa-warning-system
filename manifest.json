@@ -1,12 +1,12 @@
 {
   "name": "WA Watch — Washington Hazard Dashboard",
   "short_name": "WA Watch",
-  "description": "Live, ZIP-code-specific weather hazard alerts for Washington State.",
+  "description": "Live, ZIP-code-specific hazard dashboard for Washington State.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0f1720",
-  "theme_color": "#0f1720",
+  "background_color": "#f4f4f6",
+  "theme_color": "#0f172a",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
