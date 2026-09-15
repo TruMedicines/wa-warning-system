@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WA Watch — Washington State Hazard Dashboard</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f4f6;
+      color: #1c1c1e;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+
+    header {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 3px solid #0284c7;
+    }
+
+    header .brand {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    header small {
+      font-size: 0.875rem;
+      color: #94a3b8;
+      display: block;
+    }
+
+    main {
+      max-width: 1000px;
+      margin: 1.5rem auto;
+      padding: 0 1rem;
+    }
+
+    .search-box {
+      background: #ffffff;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .search-box input {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+    }
+
+    .search-box button {
+      padding: 0.5rem 1.25rem;
+      background: #0284c7;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    section {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 0.5rem;
+      color: #0f172a;
+    }
+
+    .section-note {
+      color: #64748b;
+      font-size: 0.8rem;
+      margin: -0.4rem 0 0.75rem;
+    }
+
+    .outlook-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 0.75rem;
+      text-align: center;
+    }
+
+    .card .title {
+      font-weight: 700;
+      color: #0284c7;
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .card .temp {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .badge-alert {
+      background: #fef2f2;
+      border-left: 4px solid #ef4444;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .badge-ok {
+      color: #166534;
+      background: #f0fdf4;
+      padding: 0.75rem;
+      border-radius: 6px;
+    }
+
+    .feed-item {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .feed-item:last-child {
+      border-bottom: none;
+    }
+
+    .feed-item .meta {
+      color: #64748b;
+      font-size: 0.8rem;
+    }
+
+    .link-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .link-btn {
+      display: inline-block;
+      background: #f0f9ff;
+      color: #0284c7;
+      border: 1px solid #bae6fd;
+      border-radius: 6px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .link-btn:hover {
+      background: #e0f2fe;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    WA Watch
+    <small>Environmental & Emergency Hazard Dashboard for Washington State</small>
+  </div>
+</header>
+
+<main>
+  <div class="search-box">
+    <input type="text" id="zipInput" placeholder="Enter Washington ZIP Code (e.g., 98101)" value="98101">
+    <button onclick="loadDashboard()">Check Hazards</button>
+  </div>
+
+  <div id="status"></div>
+
+  <!-- Active Weather Alerts -->
+  <section>
+    <h2>Active NWS Alerts</h2>
+    <div id="alertsContainer">Loading...</div>
+  </section>
+
+  <!-- 7-Day Outlook -->
+  <section>
+    <h2>7-Day Outlook</h2>
+    <div id="outlookContainer" class="outlook-grid">Loading...</div>
+  </section>
+
+  <!-- USGS River Gauges -->
+  <section>
+    <h2>USGS River & Stream Gauges (Real-Time Water Levels)</h2>
+    <p class="section-note">Nearest active gauges to your ZIP, sorted by distance — rising rivers often show up here before surface flooding does.</p>
+    <div id="usgsContainer">Loading real-time river levels...</div>
+  </section>
+
+  <!-- Traffic Cameras (replaces the old WSDOT alerts feature) -->
+  <section>
+    <h2>Traffic Cameras</h2>
+    <p class="section-note">WSDOT's alert API needs a private access code and doesn't work reliably from a browser-only site, so instead of a flaky feed, here are direct links to live camera views for Washington's usual trouble spots.</p>
+    <div class="link-row" id="cameraLinks"></div>
+  </section>
+
+  <!-- Wildfire & Debris Flow Risk -->
+  <section>
+    <h2>Wildfire & Burn Scar Hazards</h2>
+    <p class="section-note">Active fire perimeters within ~75 miles of your ZIP — a debris-flow/flash-flood risk multiplier during heavy rain.</p>
+    <div id="fireContainer">Checking active fires...</div>
+  </section>
+
+  <!-- Power Outages -->
+  <section>
+    <h2>Power Outages</h2>
+    <p class="section-note">No single free statewide outage feed exists, so these are direct links rather than a guessed status.</p>
+    <div class="link-row" id="outageContainer"></div>
+  </section>
+
+  <!-- Emergency Shelters -->
+  <section>
+    <h2>FEMA / Red Cross Emergency Shelters</h2>
+    <p class="section-note">Shelters currently marked open within ~50 miles, from FEMA's National Shelter System (synced daily from the Red Cross).</p>
+    <div id="shelterContainer">Checking open emergency shelters...</div>
+  </section>
+</main>
+
+<script>
+async function fetchZipCoordinates(zip) {
+  const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
+  if (!res.ok) throw new Error("Invalid Washington ZIP code.");
+  const data = await res.json();
+  const place = data.places[0];
+  return {
+    lat: parseFloat(place.latitude),
+    lon: parseFloat(place.longitude),
+    city: place['place name'],
+    state: place['state abbreviation']
+  };
+}
+
+// ---- Geo helpers (used to filter USGS/wildfire/shelter results to what's actually nearby) ----
+function milesBBox(lat, lon, miles) {
+  const dLat = miles / 69;
+  const dLon = miles / (69 * Math.cos(lat * Math.PI / 180));
+  return { west: lon - dLon, south: lat - dLat, east: lon + dLon, north: lat + dLat };
+}
+function bboxStr(bb) {
+  return `${bb.west},${bb.south},${bb.east},${bb.north}`;
+}
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.8;
+  const toRad = (d) => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+async function loadDashboard() {
+  const zip = document.getElementById('zipInput').value.trim();
+  const statusEl = document.getElementById('status');
+  statusEl.innerHTML = "<p>Retrieving regional data...</p>";
+
+  try {
+    const loc = await fetchZipCoordinates(zip);
+    if (loc.state !== 'WA') {
+      statusEl.innerHTML = `<p style="color:red;">${zip} is in ${loc.state}, not Washington. This dashboard only covers WA ZIP codes.</p>`;
+      return;
+    }
+    statusEl.innerHTML = `<p>Showing live alerts for <strong>${loc.city}, WA (${zip})</strong> [${loc.lat}, ${loc.lon}]</p>`;
+
+    // Execute fetches in parallel — each fed the location it needs
+    loadNWSData(loc.lat, loc.lon);
+    loadUSGSData(loc.lat, loc.lon);
+    renderCameraLinks();
+    loadWildfireData(loc.lat, loc.lon);
+    renderPowerOutageLinks();
+    loadShelterData(loc.lat, loc.lon);
+
+  } catch (err) {
+    statusEl.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+  }
+}
+
+// 1. NWS Weather Alerts & 7-Day Outlook
+async function loadNWSData(lat, lon) {
+  const alertsEl = document.getElementById('alertsContainer');
+  const outlookEl = document.getElementById('outlookContainer');
+
+  try {
+    const alertsRes = await fetch(`https://api.weather.gov/alerts/active?point=${lat},${lon}`);
+    const alertsData = await alertsRes.json();
+
+    if (alertsData.features && alertsData.features.length > 0) {
+      alertsEl.innerHTML = alertsData.features.map(f => `
+        <div class="badge-alert">
+          <strong>${f.properties.event}</strong><br>
+          <small>${f.properties.headline || (f.properties.description || '').substring(0, 150)}...</small>
+        </div>
+      `).join('');
+    } else {
+      alertsEl.innerHTML = `<div class="badge-ok">No active NWS warnings or watches for this location.</div>`;
+    }
+  } catch (e) {
+    alertsEl.innerHTML = "<p>Unable to fetch active alerts.</p>";
+  }
+
+  try {
+    const pointsRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+    const pointsData = await pointsRes.json();
+    const forecastRes = await fetch(pointsData.properties.forecast);
+    const forecastData = await forecastRes.json();
+
+    const periods = forecastData.properties.periods.slice(0, 14);
+
+    outlookEl.innerHTML = periods.map((p, idx) => {
+      let titleName = p.name;
+      if (idx === 0 || titleName.toLowerCase().startsWith("this")) {
+        titleName = "NOW";
+      }
+      return `
+        <div class="card">
+          <div class="title">${titleName}</div>
+          <div class="temp">${p.temperature}°${p.temperatureUnit}</div>
+          <small>${p.shortForecast}</small>
+        </div>
+      `;
+    }).join('');
+
+  } catch (e) {
+    outlookEl.innerHTML = "<p>Unable to fetch 7-day outlook.</p>";
+  }
+}
+
+// 2. USGS River & Stream Gauges — FIXED: now actually filters to gauges near the ZIP
+// (previously ignored lat/lon entirely and pulled all ~hundreds of active WA sites statewide,
+// then just showed whichever 5 happened to load first)
+async function loadUSGSData(lat, lon) {
+  const container = document.getElementById('usgsContainer');
+  try {
+    const bb = milesBBox(lat, lon, 30);
+    const res = await fetch(`https://waterservices.usgs.gov/nwis/iv/?format=json&bBox=${bboxStr(bb)}&parameterCd=00065,00060&siteStatus=active`);
+    if (!res.ok) throw new Error('USGS request failed');
+    const data = await res.json();
+    const series = data.value.timeSeries || [];
+
+    if (!series.length) {
+      container.innerHTML = "<p>No USGS stream gauges reporting within about 30 miles of this ZIP.</p>";
+      return;
+    }
+
+    const sites = {};
+    series.forEach(ts => {
+      const code = ts.sourceInfo.siteCode[0].value;
+      if (!sites[code]) {
+        sites[code] = {
+          name: ts.sourceInfo.siteName,
+          lat: parseFloat(ts.sourceInfo.geoLocation.geogLocation.latitude),
+          lon: parseFloat(ts.sourceInfo.geoLocation.geogLocation.longitude),
+          code
+        };
+      }
+      const paramCode = ts.variable.variableCode[0].value;
+      const vals = ts.values[0].value;
+      const latest = vals.length ? vals[vals.length - 1] : null;
+      if (!latest) return;
+      if (paramCode === '00065') sites[code].stage = { value: latest.value, time: latest.dateTime };
+      if (paramCode === '00060') sites[code].flow = { value: latest.value, time: latest.dateTime };
+    });
+
+    const nearest = Object.values(sites)
+      .map(s => ({ ...s, dist: haversineMiles(lat, lon, s.lat, s.lon) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 6);
+
+    container.innerHTML = nearest.map(s => `
+      <div class="feed-item">
+        <strong>${s.name}</strong> <span class="meta">(${s.dist.toFixed(1)} mi away)</span><br>
+        <small>
+          ${s.stage ? `Gage height: <strong>${s.stage.value} ft</strong>` : 'Gage height: —'}
+          &nbsp;·&nbsp;
+          ${s.flow ? `Flow: <strong>${Number(s.flow.value).toLocaleString()} cfs</strong>` : 'Flow: —'}
+          &nbsp;·&nbsp;
+          <a href="https://waterdata.usgs.gov/monitoring-location/${s.code}" target="_blank">USGS site →</a>
+        </small>
+      </div>
+    `).join('');
+  } catch (e) {
+    container.innerHTML = "<p>USGS sensor stream temporarily unavailable.</p>";
+  }
+}
+
+// 3. Traffic cameras — direct links instead of the removed WSDOT alerts feed.
+// WSDOT's camera & alert APIs both require a private access code and don't support
+// direct browser requests, which is what made the old road-alerts feature unreliable.
+// These are official WSDOT / regional live-camera pages for WA's highest-traffic corridors.
+function renderCameraLinks() {
+  const container = document.getElementById('cameraLinks');
+  const cameras = [
+    { name: 'I-5 Seattle/Tacoma corridor', url: 'https://wsdot.com/travel/real-time/map/?route=005' },
+    { name: 'I-90 Snoqualmie Pass', url: 'https://wsdot.com/traffic/passes/snoqualmie/' },
+    { name: 'US-2 Stevens Pass', url: 'https://wsdot.com/traffic/passes/stevens/' },
+    { name: 'I-405 Eastside', url: 'https://wsdot.com/travel/real-time/map/?route=405' },
+    { name: 'SR-520 floating bridge', url: 'https://wsdot.com/travel/real-time/map/?route=520' },
+    { name: 'Seattle city cameras', url: 'https://web6.seattle.gov/travelers/' },
+    { name: 'All WSDOT live cameras', url: 'https://wsdot.com/travel/real-time/map/' }
+  ];
+  container.innerHTML = cameras.map(c => `<a class="link-btn" href="${c.url}" target="_blank" rel="noopener">${c.name} →</a>`).join('');
+}
+
+// 4. Wildfire & Burn Scar Risks — FIXED: the old endpoint (services3.arcgis.com/T4QD1APJqA2vdFcY/...)
+// returns "Invalid URL" — that org ID doesn't exist. Swapped in the real, public NIFC/WFIGS
+// perimeter service and filtered to a bounding box around the ZIP instead of a blind statewide query.
+async function loadWildfireData(lat, lon) {
+  const container = document.getElementById('fireContainer');
+  try {
+    const bb = milesBBox(lat, lon, 75);
+    const url = `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&f=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('NIFC request failed');
+    const data = await res.json();
+    const feats = data.features || [];
+
+    if (!feats.length) {
+      container.innerHTML = "<div class='badge-ok'>No active fire perimeters mapped within about 75 miles of this ZIP.</div>";
+      return;
+    }
+
+    container.innerHTML = feats.slice(0, 6).map(f => {
+      const p = f.properties || {};
+      const name = p.poly_IncidentName || p.IncidentName || 'Unnamed incident';
+      const acres = p.poly_GISAcres || p.GISAcres;
+      const contained = p.attr_PercentContained ?? p.PercentContained;
+      return `
+        <div class="feed-item">
+          <strong>${name}</strong><br>
+          <small>
+            ${acres ? Math.round(acres).toLocaleString() + ' acres' : 'Acreage unavailable'}
+            ${contained != null ? ` &nbsp;·&nbsp; ${contained}% contained` : ''}
+            &nbsp;·&nbsp; Burn-scar debris-flow risk applies to areas downhill of the perimeter during heavy rain
+          </small>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = "<p>Wildfire perimeter data is temporarily unavailable.</p>";
+  }
+}
+
+// 5. Power Outages — FIXED: previously hardcoded "Grid Normal" as if it were live data,
+// which is misleading since it never actually checked anything. No free unified statewide
+// outage feed exists, so this is now an honest set of links instead of a fabricated status.
+function renderPowerOutageLinks() {
+  const container = document.getElementById('outageContainer');
+  const utilities = [
+    { name: 'Seattle City Light', url: 'https://www.seattle.gov/city-light/outages' },
+    { name: 'Puget Sound Energy', url: 'https://www.pse.com/en/outage-map' },
+    { name: 'Snohomish County PUD', url: 'https://www.snopud.com/outagemap' },
+    { name: 'Tacoma Power', url: 'https://www.mytpu.org/outages/' },
+    { name: 'Clark Public Utilities', url: 'https://www.clarkpublicutilities.com/outages/' },
+    { name: 'Avista (Spokane area)', url: 'https://www.myavista.com/outage-center/current-outages' }
+  ];
+  container.innerHTML = utilities.map(u => `<a class="link-btn" href="${u.url}" target="_blank" rel="noopener">${u.name} →</a>`).join('');
+}
+
+// 6. Emergency Shelters — FIXED: the old endpoint (services1.arcgis.com/Hp6G80Pky0om7QvQ/...)
+// also returns "Invalid URL" — swapped in FEMA's real, public National Shelter System service
+// and filtered to a bounding box around the ZIP instead of a blind statewide attribute query.
+async function loadShelterData(lat, lon) {
+  const container = document.getElementById('shelterContainer');
+  try {
+    const bb = milesBBox(lat, lon, 50);
+    const url = `https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&f=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('FEMA request failed');
+    const data = await res.json();
+    const feats = data.features || [];
+
+    if (!feats.length) {
+      container.innerHTML = "<p>No shelters are currently listed as open within about 50 miles. That's normal outside an active disaster.</p>";
+      return;
+    }
+
+    container.innerHTML = feats.slice(0, 8).map(f => {
+      const p = f.properties || {};
+      const name = p.SHELTER_NAME || p.NAME || 'Shelter';
+      const addr = [p.ADDRESS || p.Address, p.CITY || p.City].filter(Boolean).join(', ');
+      const cap = p.EVACUATION_CAPACITY || p.TOTAL_CAPACITY;
+      return `
+        <div class="feed-item">
+          <strong>${name}</strong>${addr ? ` (${addr})` : ''}<br>
+          <small>${cap ? `Capacity: ${cap}` : 'Status: Open'}</small>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    container.innerHTML = "<p>Shelter data is temporarily unavailable.</p>";
+  }
+}
+
+// Auto-load on page start
+window.onload = loadDashboard;
+</script>
+
+</body>
+</html>
