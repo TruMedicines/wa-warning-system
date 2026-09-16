@@ -7,8 +7,7 @@ page, installable to a phone's home screen, no login required.
 
 Live at: https://trumedicines.github.io/wa-warning-system/
 
-Inspired by [Cliff Mass's proposal](https://cliffmass.blogspot.com/) for a Seattle-area
-environmental warning system.
+Inspired by for a Seattle-area environmental warning system.
 
 ## What it does
 
@@ -89,26 +88,6 @@ current setting) they cycle in order every `data-interval` seconds. Switch to
 `data-sequential="false"` for weighted-random rotation instead, using each slot's
 `data-frequency`. Add, edit, or delete slots freely — no build step, just HTML.
 
-**PayPal setup:** one slot is a permanent "Sponsor via PayPal" call to action. No ad library —
-open-source or otherwise — has real built-in billing; that's just a payment link, so:
-
-1. Get your PayPal.me link: log into PayPal, go to
-   [paypal.me](https://www.paypal.me) and claim a username if you haven't already
-   (`paypal.me/yourname`).
-2. In `index.html`, find `https://paypal.me/YOUR_PAYPAL_USERNAME` (in the sponsor bar markup,
-   near the bottom of the file) and replace it with your real link.
-
-That's it — clicking it takes the visitor to a PayPal page to send you a payment, no backend
-or API keys involved. If you'd rather collect payment *in the page* instead of sending
-sponsors to paypal.com, PayPal's official
-[Smart Payment Buttons](https://developer.paypal.com/sdk/js/) can do that client-side, but it
-needs a PayPal Developer app / Client ID that only you can create — worth it once you have
-sponsors, overkill before then.
-
-Once someone pays, the actual work of listing them is manual: duplicate a `.rb-random-ads`
-block, swap in their name/logo/link. There's no automated self-serve signup — building that
-would need a backend (payment webhook → database → rendering), which conflicts with this
-project staying a zero-backend static site. Worth revisiting if sponsor volume ever justifies it.
 
 ## 1. Deploy it (free, ~5 minutes)
 
