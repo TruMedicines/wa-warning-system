@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WA Watch — Washington State Hazard Dashboard</title>
+<meta name="description" content="Live, zip-code-specific weather and hazard warnings for Washington State: wind, snow, flooding, wildfire, heat, and cold." />
+<meta name="theme-color" content="#0f1720" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    /* Light grey gradient body, dark instrument-panel header */
+    --bg-1:#eef0f3;
+    --bg-2:#dfe3e8;
+    --header-bg:#0f1720;
+    --header-bg-2:#0b121a;
+    --surface:#ffffff;
+    --surface-raised:#f3f5f7;
+    --line:#e1e5ea;
+    --text:#161c24;
+    --muted:#5b6672;
+    --muted-dim:#8994a1;
+    --header-text:#eef2f5;
+    --header-muted:#93a4b3;
+
+    --brand:#b8811f;
+    --warning:#d1373c;
+    --watch:#d9711f;
+    --advisory:#b8811f;
+    --statement:#2f6fb0;
+    --clear:#2c9456;
+    --wind:#2f6fb0;
+    --snow:#4f8fae;
+    --rain:#2f7f9e;
+    --cold:#3f7fae;
+    --heat:#c15a26;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+    background-attachment:fixed;
+    color:var(--text);
+    font-family:'Public Sans', system-ui, sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono', ui-monospace, monospace;}
+  a{color:inherit}
+  .wrap{max-width:840px;margin:0 auto;padding:0 20px;}
+
+  /* Header / instrument bar — stays dark to anchor the brand */
+  header.bar{
+    border-bottom:3px solid var(--brand);
+    background:linear-gradient(180deg, var(--header-bg), var(--header-bg-2));
+    position:sticky; top:0; z-index:10;
+  }
+  .bar-inner{
+    max-width:840px;margin:0 auto;padding:14px 20px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  }
+  .wordmark{
+    display:flex;align-items:baseline;gap:8px;font-weight:800;font-size:19px;letter-spacing:-0.01em;
+    margin-right:auto;color:var(--header-text);
+  }
+  .wordmark .dot{width:9px;height:9px;border-radius:50%;background:var(--clear);display:inline-block;box-shadow:0 0 0 3px rgba(44,148,86,0.25);}
+  .wordmark .dot.warn{background:var(--warning);box-shadow:0 0 0 3px rgba(209,55,60,0.25);}
+  .wordmark small{font-weight:500;color:var(--header-muted);font-size:12px;}
+
+  .zipform{display:flex;gap:8px;}
+  .zipform input{
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.16);color:var(--header-text);
+    border-radius:6px;padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:15px;
+    width:120px;letter-spacing:0.03em;
+  }
+  .zipform input::placeholder{color:var(--header-muted)}
+  .zipform button{
+    background:var(--brand);color:#1a1206;border:none;border-radius:6px;
+    padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  .zipform button:hover{filter:brightness(1.08)}
+  .zipform button:disabled{opacity:.5;cursor:default}
+
+  main{max-width:840px;margin:0 auto;padding:28px 20px 80px;}
+
+  .status-msg{color:var(--muted);font-size:14px;padding:10px 0;}
+  .status-msg.error{color:var(--warning)}
+
+  /* Hero status tile */
+  .hero{
+    border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:28px;
+    background:var(--surface);box-shadow:0 1px 3px rgba(15,23,32,0.06);
+  }
+  .hero-top{padding:22px 22px 18px;}
+  .hero-place{color:var(--muted);font-size:13px;margin:0 0 6px;}
+  .hero-headline{font-size:26px;font-weight:800;letter-spacing:-0.01em;margin:0 0 6px;}
+  .hero-sub{color:var(--muted);font-size:14px;margin:0;}
+  .hero-clear .hero-headline{color:var(--clear)}
+  .hero-active .hero-headline{color:var(--warning)}
+
+  /* Collapsible sections */
+  section{margin-bottom:16px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 1px 3px rgba(15,23,32,0.05);overflow:hidden;}
+  .section-toggle{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;
+    padding:16px 18px;
+  }
+  .section-toggle .section-title{
+    font-size:13px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:700;
+  }
+  .section-toggle .chevron{
+    color:var(--muted-dim);font-size:12px;transition:transform .2s ease;flex-shrink:0;
+  }
+  section.open .section-toggle .chevron{transform:rotate(180deg);}
+  section.open .section-toggle{border-bottom:1px solid var(--line);}
+  .section-body{display:none;padding:4px 18px 18px;}
+  section.open .section-body{display:block;}
+  .section-note{color:var(--muted-dim);font-size:12.5px;margin:0 0 12px;}
+
+  /* Pastel tint per section header — purely decorative, keeps sections easy to tell apart at a glance */
+  section[data-key="alerts"] .section-toggle{background:#fdecec;}
+  section[data-key="outlook"] .section-toggle{background:#eaf1fb;}
+  section[data-key="gauges"] .section-toggle{background:#fdf3e2;}
+  section[data-key="rivers"] .section-toggle{background:#e6f5f4;}
+  section[data-key="fires"] .section-toggle{background:#fdece0;}
+  section[data-key="cameras"] .section-toggle{background:#f1ecfb;}
+  section[data-key="shelters"] .section-toggle{background:#eaf7ee;}
+  section[data-key="outages"] .section-toggle{background:#fdf8e0;}
+  section[data-key="almanac"] .section-toggle{background:#f7f0e4;}
+  section[data-key="uw"] .section-toggle{background:#e8f4fb;}
+  section[data-key="notify"] .section-toggle{background:#fbeaf0;}
+
+  /* Alert cards */
+  .alert-card{
+    border:1px solid var(--line);border-left-width:4px;border-radius:6px;
+    background:var(--surface-raised);padding:14px 16px;margin-bottom:10px;
+  }
+  .alert-card.Warning{border-left-color:var(--warning)}
+  .alert-card.Watch{border-left-color:var(--watch)}
+  .alert-card.Advisory{border-left-color:var(--advisory)}
+  .alert-card.Statement{border-left-color:var(--statement)}
+  .alert-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;}
+  .alert-event{font-weight:700;font-size:15.5px;}
+  .alert-time{color:var(--muted-dim);font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+  .alert-headline{color:var(--muted);font-size:13.5px;margin:6px 0 0;}
+  .alert-detail{font-size:13.5px;color:var(--muted);margin-top:8px;display:none;white-space:pre-wrap;}
+  .alert-card.open .alert-detail{display:block}
+  .alert-toggle{background:none;border:none;color:var(--statement);font-size:12.5px;font-weight:600;cursor:pointer;padding:8px 0 0;font-family:inherit;}
+  .all-clear-card{
+    border:1px solid var(--line);border-left:4px solid var(--clear);border-radius:6px;
+    background:var(--surface-raised);padding:14px 16px;color:var(--muted);font-size:14px;
+  }
+
+  /* Forecast strip */
+  .forecast-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;}
+  .fc-card{
+    flex:0 0 130px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);
+    padding:12px 12px 14px;
+  }
+  .fc-day{font-weight:700;font-size:13px;margin-bottom:2px;}
+  .fc-when{color:var(--muted-dim);font-size:11px;margin-bottom:10px;}
+  .fc-temp{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;}
+  .fc-short{color:var(--muted);font-size:12px;margin:6px 0 10px;min-height:32px;}
+  .fc-row{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted-dim);font-family:'JetBrains Mono',monospace;padding-top:4px;border-top:1px dashed var(--line);}
+  .fc-row span:last-child{color:var(--text)}
+
+  /* Hazard gauges */
+  .gauge-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:520px){.gauge-grid{grid-template-columns:1fr}}
+  .gauge{border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);padding:14px 16px;}
+  .gauge-label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .gauge-label .name{font-weight:700;font-size:13.5px;}
+  .gauge-label .val{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--muted);}
+  .gauge-bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;}
+  .gauge-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+  .gauge-note{color:var(--muted-dim);font-size:12px;margin-top:8px;}
+
+  /* Generic data cards (rivers / fires / shelters) */
+  .data-card{border:1px solid var(--line);border-radius:6px;background:var(--surface-raised);padding:12px 16px;margin-bottom:8px;}
+  .dc-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;}
+  .dc-name{font-weight:700;font-size:14.5px;}
+  .dc-meta{color:var(--muted-dim);font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+  .dc-detail{color:var(--muted);font-size:13px;margin-top:6px;}
+  .dc-detail a{color:var(--statement);}
+  .empty-note{color:var(--muted-dim);font-size:13.5px;padding:6px 0;}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:0.03em;}
+  .badge.high{background:rgba(209,55,60,0.12);color:#a3282c;}
+  .badge.mod{background:rgba(217,113,31,0.12);color:#a3591a;}
+  .badge.low{background:rgba(44,148,86,0.12);color:#217a43;}
+  .badge.info{background:rgba(47,111,176,0.12);color:#245a8f;}
+
+  /* Link rows (traffic cameras / power outages) */
+  .link-row{display:flex;flex-wrap:wrap;gap:8px;}
+
+  /* Notify section + buttons + link buttons all share .btn */
+  .notify-box{border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);padding:16px 18px;}
+  .notify-box p{color:var(--muted);font-size:14px;margin:0 0 14px;}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .btn{
+    border:1px solid var(--line);background:var(--surface);color:var(--text);
+    padding:10px 16px;border-radius:6px;font-weight:600;font-size:13.5px;cursor:pointer;font-family:inherit;
+  }
+  .btn.primary{background:var(--brand);color:#1a1206;border-color:var(--brand);}
+  .btn:disabled{opacity:.5;cursor:default}
+  a.btn{display:inline-block;text-decoration:none;}
+  .notify-state{font-size:12.5px;color:var(--muted-dim);margin-top:10px;font-family:'JetBrains Mono',monospace;}
+  .sms-note{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+    color:var(--muted-dim);font-size:12.5px;
+  }
+  .sms-note a{color:var(--statement);text-decoration:none;font-weight:600;}
+
+  footer{padding:22px 20px 40px;color:var(--muted-dim);font-size:12px;}
+  footer a{color:var(--muted);}
+
+  .skeleton{color:var(--muted-dim);font-size:13px;padding:8px 0;}
+
+  /* Bottom sponsor bar (AdShuffle — self-hosted, MIT-licensed rotator) */
+  body{padding-bottom:0;}
+  body.has-ad-bar{padding-bottom:78px;}
+  .ad-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--surface);border-top:1px solid var(--line);
+    box-shadow:0 -2px 10px rgba(15,23,32,0.08);
+    padding:8px 36px 8px 10px;min-height:62px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .rb-ads{max-width:800px;width:100%;}
+  .rb-random-ads{display:none;}
+  .ad-bar-label{
+    position:absolute;top:6px;left:10px;font-size:9.5px;letter-spacing:0.06em;
+    text-transform:uppercase;color:var(--muted-dim);
+  }
+  #ads-toggle-button{
+    position:absolute;top:6px;right:8px;min-width:24px;height:24px;padding:0 6px;
+    background:var(--surface-raised);border:1px solid var(--line);border-radius:12px;
+    color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:0.03em;
+    text-transform:uppercase;cursor:pointer;font-family:inherit;
+  }
+  .sponsor-slot{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    background:var(--surface-raised);border:1px solid var(--line);border-radius:8px;
+    padding:10px 14px;flex-wrap:wrap;
+  }
+  .sponsor-slot .sp-text{font-size:13px;color:var(--muted);}
+  .sponsor-slot .sp-text strong{color:var(--text);}
+  .sponsor-slot .sp-cta{
+    display:inline-block;background:var(--brand);color:#1a1206;font-weight:700;font-size:12.5px;
+    padding:7px 14px;border-radius:6px;text-decoration:none;white-space:nowrap;
+  }
+</style>
+</head>
+<body class="has-ad-bar">
+
+<header class="bar">
+  <div class="bar-inner">
+    <div class="wordmark">
+      <span class="dot" id="statusDot"></span>
+      WA Watch <small>hazard dashboard for Washington State</small>
+    </div>
+    <form class="zipform" id="zipForm">
+      <input id="zipInput" inputmode="numeric" maxlength="5" placeholder="98101" aria-label="Washington ZIP code" />
+      <button type="submit" id="zipSubmit">Check</button>
+    </form>
+  </div>
+</header>
+
+<main>
+  <div id="statusMsg" class="status-msg">Enter a Washington ZIP code above to see live conditions and active alerts for your location.</div>
+
+  <div id="app" style="display:none;">
+
+    <div class="hero" id="hero">
+      <div class="hero-top">
+        <p class="hero-place" id="heroPlace">—</p>
+        <p class="hero-headline" id="heroHeadline">Loading…</p>
+        <p class="hero-sub" id="heroSub"></p>
+      </div>
+    </div>
+
+    <section class="open" data-key="alerts">
+      <button class="section-toggle" type="button"><span class="section-title">Active alerts</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <div id="alertsList"></div>
+      </div>
+    </section>
+
+    <section data-key="outlook">
+      <button class="section-toggle" type="button"><span class="section-title">7-day outlook</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <div class="forecast-scroll" id="forecastStrip"></div>
+      </div>
+    </section>
+
+    <section data-key="gauges">
+      <button class="section-toggle" type="button"><span class="section-title">Hazard readouts — next 48 hours</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <div class="gauge-grid" id="gaugeGrid"></div>
+      </div>
+    </section>
+
+    <section data-key="rivers">
+      <button class="section-toggle" type="button"><span class="section-title">River &amp; stream gauges</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <p class="section-note">Live USGS sensors — rising rivers often show up here hours before surface flooding does.</p>
+        <div id="riverList"><div class="skeleton">Checking nearby gauges…</div></div>
+      </div>
+    </section>
+
+    <section data-key="fires">
+      <button class="section-toggle" type="button"><span class="section-title">Wildfire activity</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <p class="section-note">Active fire perimeters within ~75 miles. Areas inside or downhill of a burn scar carry extreme flash-flood and debris-flow risk during heavy rain.</p>
+        <div id="fireList"><div class="skeleton">Checking active fire perimeters…</div></div>
+      </div>
+    </section>
+
+    <section data-key="cameras">
+      <button class="section-toggle" type="button"><span class="section-title">Traffic cameras</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <p class="section-note">WSDOT's road-alert API needs a private key and doesn't work reliably from a browser-only site, so these are direct links to live camera views for WA's usual trouble spots.</p>
+        <div class="link-row" id="cameraLinks"></div>
+      </div>
+    </section>
+
+    <section data-key="shelters">
+      <button class="section-toggle" type="button"><span class="section-title">Emergency shelters</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <p class="section-note">Shelters currently marked open within ~50 miles, from FEMA's National Shelter System (synced daily from the Red Cross).</p>
+        <div id="shelterList"><div class="skeleton">Checking open shelters…</div></div>
+      </div>
+    </section>
+
+    <section data-key="outages">
+      <button class="section-toggle" type="button"><span class="section-title">Power outages</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <p class="section-note">No single statewide feed covers every WA utility, so pick yours for its live outage map.</p>
+        <div class="link-row" id="utilityLinks"></div>
+      </div>
+    </section>
+
+    <section data-key="almanac">
+      <button class="section-toggle" type="button"><span class="section-title">Winter outlook (Old Farmer's Almanac)</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <p class="section-note">
+          Published once a year, not live data — a long-range, folklore-influenced seasonal
+          outlook, not a meteorological forecast. Useful for rough planning, not for a specific
+          storm. Last updated in this page: September 2026, covering Winter 2026–2027.
+        </p>
+        <div class="data-card">
+          <div class="dc-top">
+            <span class="dc-name">The Old Farmer's Almanac</span>
+            <span class="badge info">Winter 2026–27</span>
+          </div>
+          <div class="dc-detail">
+            Calls for a milder-than-average winter across the Pacific Northwest overall, but
+            with above-normal snowfall in the mountains. The coldest snaps are expected in
+            late December, early January, and early February.
+            &nbsp;·&nbsp;
+            <a href="https://www.almanac.com/winter-extended-forecast-farmers-almanac" target="_blank" rel="noopener">Full regional forecast →</a>
+          </div>
+        </div>
+        <div class="data-card">
+          <div class="dc-top">
+            <span class="dc-name">Farmers' Almanac <span class="mono" style="font-weight:400;">(a separate publisher)</span></span>
+            <span class="badge info">Winter 2026–27</span>
+          </div>
+          <div class="dc-detail">
+            Expects a more changeable, less consistent snow season for the Pacific Northwest
+            than usual, as the most active storm track sets up further south and east this
+            year — though brief, intense bursts of cold, wind, and snow are still expected.
+            &nbsp;·&nbsp;
+            <a href="https://www.farmersalmanac.com/farmers-almanac-2026-2027-winter-weather-forecast" target="_blank" rel="noopener">Full regional forecast →</a>
+          </div>
+        </div>
+        <p class="section-note" style="margin:10px 0 0;">
+          For an actual short-range forecast, use the sections above — this one is just a
+          seasonal heads-up. NOAA's <a href="https://www.cpc.ncep.noaa.gov/" target="_blank" rel="noopener" style="color:var(--statement);">Climate Prediction Center</a>
+          publishes the closest thing to a scientific seasonal outlook, for comparison.
+        </p>
+      </div>
+    </section>
+
+    <section data-key="uw">
+      <button class="section-toggle" type="button"><span class="section-title">More Seattle-area tools from UW</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <p class="section-note">Two live model-based tools from the University of Washington Department of Atmospheric Sciences go deeper on the two hazards Seattle worries about most.</p>
+        <div class="btn-row">
+          <a class="btn" href="https://a.atmos.washington.edu/SNOWWATCH/" target="_blank" rel="noopener">UW SnowWatch →</a>
+          <a class="btn" href="https://a.atmos.washington.edu/SCL/" target="_blank" rel="noopener">UW WindWatch →</a>
+        </div>
+      </div>
+    </section>
+
+    <section data-key="notify">
+      <button class="section-toggle" type="button"><span class="section-title">Get alerts</span><span class="chevron">▾</span></button>
+      <div class="section-body">
+        <div class="notify-box">
+          <p>Turn on browser notifications to get pushed alerts for <strong id="notifyZipLabel">this ZIP</strong> while WA Watch is open in a tab, or installed to your home screen. New NWS alerts are checked every 5 minutes.</p>
+          <div class="btn-row">
+            <button class="btn primary" id="enableNotif">Enable browser alerts</button>
+            <button class="btn" id="installBtn" style="display:none;">Add to home screen</button>
+          </div>
+          <div class="notify-state" id="notifyState"></div>
+          <div class="sms-note">
+            Want a text message even when your phone is asleep? That needs a small always-on backend — a
+            static site by itself can't send SMS. This project ships a free option built on GitHub Actions
+            + your carrier's email-to-text gateway. See <a href="README.md">README.md</a> for setup, or use
+            a paid provider like Twilio for more reliable delivery.
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    Data: <a href="https://www.weather.gov/documentation/services-web-api" target="_blank" rel="noopener">National Weather Service API</a> ·
+    <a href="https://waterservices.usgs.gov/" target="_blank" rel="noopener">USGS Water Services</a> ·
+    <a href="https://data-nifc.opendata.arcgis.com/" target="_blank" rel="noopener">NIFC/WFIGS</a> ·
+    <a href="https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer" target="_blank" rel="noopener">FEMA National Shelter System</a> ·
+    ZIP geocoding: <a href="https://www.zippopotam.us/" target="_blank" rel="noopener">Zippopotam.us</a>.
+    This is a community tool, not an official emergency system — always follow guidance from local officials and the NWS.
+    Inspired by <a href="https://cliffmass.blogspot.com/" target="_blank" rel="noopener">Cliff Mass's proposal</a> for a Seattle-area environmental warning system.
+  </footer>
+</main>
+
+<div class="ad-bar" id="adBar">
+  <span class="ad-bar-label">Sponsors</span>
+  <button id="ads-toggle-button"></button>
+
+  <!--
+    Rotating sponsor bar, powered by the self-hosted AdShuffle library (vendor/ad-shuffle.js,
+    MIT license). Each .rb-random-ads block below is one rotating slot — add, remove, or edit
+    them freely, no build step needed. data-sequential="true" cycles them in order every
+    data-interval seconds; switch to data-sequential="false" (or omit it) for weighted-random
+    rotation using each slot's data-frequency instead.
+  -->
+  <div class="rb-ads" data-auto-rotate="true" data-interval="8" data-sequential="true">
+
+    <!-- Example sponsor slot — replace with a real sponsor, or delete this block entirely. -->
+    <div class="rb-random-ads">
+      <div class="sponsor-slot">
+        <span class="sp-text"><strong>Example Sponsor Co.</strong> — this is a sample slot, replace or remove it.</span>
+        <a class="sp-cta" href="#" target="_blank" rel="noopener sponsored">Visit →</a>
+      </div>
+    </div>
+
+    <!--
+      Permanent "advertise here" slot. Replace YOUR_PAYPAL_USERNAME below with your real
+      PayPal.me link (paypal.me/<username>) or a payment link from your PayPal account —
+      that can't be filled in for you, it's private account data. See README.md for setup
+      and for a note on PayPal's Smart Buttons if you'd rather take payment in-page instead
+      of linking out.
+    -->
+    <div class="rb-random-ads">
+      <div class="sponsor-slot">
+        <span class="sp-text">Sponsor this dashboard — your banner rotates here, seen by everyone checking WA weather hazards.</span>
+        <a class="sp-cta" href="https://paypal.me/YOUR_PAYPAL_USERNAME" target="_blank" rel="noopener">Sponsor via PayPal →</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+<script src="vendor/ad-shuffle.js"></script>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const statusMsg = $('statusMsg');
+  const app = $('app');
+  const statusDot = $('statusDot');
+
+  const UA = { headers: { 'Accept': 'application/geo+json' } };
+  let pollTimer = null;
+
+  function setStatus(msg, isError){
+    statusMsg.style.display = 'block';
+    statusMsg.textContent = msg;
+    statusMsg.className = 'status-msg' + (isError ? ' error' : '');
+  }
+  function clearStatus(){ statusMsg.style.display = 'none'; }
+
+  // ---- Collapsible sections ----
+  document.querySelectorAll('section[data-key] > .section-toggle').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const section = btn.parentElement;
+      section.classList.toggle('open');
+      btn.setAttribute('aria-expanded', section.classList.contains('open') ? 'true' : 'false');
+    });
+  });
+
+  // ---- Geo helpers ----
+  function milesBBox(lat, lon, miles){
+    const dLat = miles / 69;
+    const dLon = miles / (69 * Math.cos(lat * Math.PI / 180));
+    return { west: lon - dLon, south: lat - dLat, east: lon + dLon, north: lat + dLat };
+  }
+  function bboxStr(bb){ return `${bb.west},${bb.south},${bb.east},${bb.north}`; }
+  function haversineMiles(lat1, lon1, lat2, lon2){
+    const R = 3958.8;
+    const toRad = (d) => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return R * 2 * Math.asin(Math.sqrt(a));
+  }
+
+  async function geocodeZip(zip){
+    const r = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if(!r.ok) throw new Error('ZIP not found');
+    const d = await r.json();
+    const place = d.places[0];
+    return {
+      lat: parseFloat(place.latitude),
+      lon: parseFloat(place.longitude),
+      city: place['place name'],
+      state: place['state abbreviation']
+    };
+  }
+
+  async function getPoint(lat, lon){
+    const r = await fetch(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`, UA);
+    if(!r.ok) throw new Error('NWS point lookup failed');
+    return r.json();
+  }
+
+  async function getAlerts(lat, lon){
+    const r = await fetch(`https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lon.toFixed(4)}`, UA);
+    if(!r.ok) throw new Error('Alerts fetch failed');
+    return r.json();
+  }
+
+  async function getForecast(url){
+    const r = await fetch(url, UA);
+    if(!r.ok) throw new Error('Forecast fetch failed');
+    return r.json();
+  }
+
+  function severityClass(a){
+    const ev = (a.event || '').toLowerCase();
+    if(ev.includes('warning')) return 'Warning';
+    if(ev.includes('watch')) return 'Watch';
+    if(ev.includes('advisory')) return 'Advisory';
+    return 'Statement';
+  }
+
+  function fmtTime(iso){
+    try{
+      return new Date(iso).toLocaleString('en-US', { weekday:'short', hour:'numeric', minute:'2-digit' });
+    }catch(e){ return ''; }
+  }
+
+  function renderHero(place, alerts){
+    const hero = $('hero');
+    $('heroPlace').textContent = `${place.city}, WA · ${place.zip}`;
+    if(alerts.features.length === 0){
+      hero.className = 'hero hero-clear';
+      $('heroHeadline').textContent = 'No active alerts';
+      $('heroSub').textContent = 'Conditions are currently normal for this location.';
+      statusDot.className = 'dot';
+    } else {
+      hero.className = 'hero hero-active';
+      const top = alerts.features[0].properties;
+      $('heroHeadline').textContent = `${alerts.features.length} active alert${alerts.features.length>1?'s':''}: ${top.event}`;
+      $('heroSub').textContent = top.headline || '';
+      statusDot.className = 'dot warn';
+    }
+  }
+
+  function renderAlerts(alerts){
+    const list = $('alertsList');
+    list.innerHTML = '';
+    if(alerts.features.length === 0){
+      const div = document.createElement('div');
+      div.className = 'all-clear-card';
+      div.textContent = 'No watches, warnings, or advisories are currently in effect for this ZIP code.';
+      list.appendChild(div);
+      return;
+    }
+    alerts.features
+      .sort((a,b) => new Date(b.properties.sent) - new Date(a.properties.sent))
+      .forEach(f => {
+        const p = f.properties;
+        const card = document.createElement('div');
+        card.className = `alert-card ${severityClass(p)}`;
+        card.innerHTML = `
+          <div class="alert-top">
+            <div class="alert-event">${p.event}</div>
+            <div class="alert-time">until ${p.expires ? fmtTime(p.expires) : 'further notice'}</div>
+          </div>
+          <div class="alert-headline">${p.headline || ''}</div>
+          <button class="alert-toggle">Show details</button>
+          <div class="alert-detail">${(p.description || '').trim()}${p.instruction ? '\n\nWhat to do:\n' + p.instruction.trim() : ''}</div>
+        `;
+        card.querySelector('.alert-toggle').addEventListener('click', () => {
+          card.classList.toggle('open');
+          card.querySelector('.alert-toggle').textContent = card.classList.contains('open') ? 'Hide details' : 'Show details';
+        });
+        list.appendChild(card);
+      });
+  }
+
+  function renderForecast(forecast){
+    const strip = $('forecastStrip');
+    strip.innerHTML = '';
+    forecast.properties.periods.slice(0, 10).forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'fc-card';
+      card.innerHTML = `
+        <div class="fc-day">${p.name.length > 10 ? p.name.slice(0,3) : p.name}</div>
+        <div class="fc-when">${p.isDaytime ? 'Day' : 'Night'}</div>
+        <div class="fc-temp">${p.temperature}°${p.temperatureUnit}</div>
+        <div class="fc-short">${p.shortForecast}</div>
+        <div class="fc-row"><span>Wind</span><span>${p.windSpeed}</span></div>
+        <div class="fc-row"><span>Precip</span><span>${p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value != null ? p.probabilityOfPrecipitation.value + '%' : '—'}</span></div>
+      `;
+      strip.appendChild(card);
+    });
+  }
+
+  function parseWindMph(str){
+    const m = (str || '').match(/(\d+)(?:\s*to\s*(\d+))?/);
+    if(!m) return 0;
+    return m[2] ? parseInt(m[2],10) : parseInt(m[1],10);
+  }
+
+  function renderGauges(forecast){
+    const periods = forecast.properties.periods.slice(0, 4); // next ~48h
+    let maxWind = 0, maxPrecip = 0, minTemp = Infinity, maxTemp = -Infinity;
+    let snowMention = false;
+    periods.forEach(p => {
+      maxWind = Math.max(maxWind, parseWindMph(p.windSpeed));
+      if(p.probabilityOfPrecipitation && p.probabilityOfPrecipitation.value != null){
+        maxPrecip = Math.max(maxPrecip, p.probabilityOfPrecipitation.value);
+      }
+      minTemp = Math.min(minTemp, p.temperature);
+      maxTemp = Math.max(maxTemp, p.temperature);
+      if(/snow/i.test(p.shortForecast)) snowMention = true;
+    });
+
+    const gauges = [
+      {
+        name: 'Wind gusts', color: 'var(--wind)', value: maxWind, unit: 'mph',
+        pct: Math.min(100, (maxWind/60)*100),
+        note: maxWind >= 50 ? 'High wind risk — secure loose objects, expect outages.' :
+              maxWind >= 35 ? 'Elevated wind — watch for falling branches.' : 'Normal range.'
+      },
+      {
+        name: 'Snow risk', color: 'var(--snow)', value: snowMention ? 'Mentioned' : 'None', unit: '',
+        pct: snowMention ? 70 : 5,
+        note: snowMention ? 'Snow appears in the forecast text — check timing above.' : 'No snow mentioned in current forecast.'
+      },
+      {
+        name: 'Rain / flood risk', color: 'var(--rain)', value: maxPrecip, unit: '%',
+        pct: maxPrecip,
+        note: maxPrecip >= 70 ? 'High chance of rain — check drains and gutters.' :
+              maxPrecip >= 40 ? 'Moderate chance of rain.' : 'Low chance of rain.'
+      },
+      {
+        name: 'Cold exposure', color: 'var(--cold)', value: minTemp, unit: '°F',
+        pct: Math.max(0, Math.min(100, (32 - minTemp) * 4 + 10)),
+        note: minTemp <= 32 ? 'Below freezing — exposure risk for people outdoors.' :
+              minTemp <= 40 ? 'Chilly overnight lows.' : 'Normal range.'
+      },
+      {
+        name: 'Heat risk', color: 'var(--heat)', value: maxTemp, unit: '°F',
+        pct: Math.max(0, Math.min(100, (maxTemp - 70) * 2.5)),
+        note: maxTemp >= 90 ? 'Hot — check on vulnerable neighbors, stay hydrated.' :
+              maxTemp >= 80 ? 'Warm conditions.' : 'Normal range.'
+      }
+    ];
+
+    const grid = $('gaugeGrid');
+    grid.innerHTML = '';
+    gauges.forEach(g => {
+      const el = document.createElement('div');
+      el.className = 'gauge';
+      el.innerHTML = `
+        <div class="gauge-label"><span class="name">${g.name}</span><span class="val">${g.value}${g.unit}</span></div>
+        <div class="gauge-bar"><div class="gauge-fill" style="width:${g.pct}%;background:${g.color}"></div></div>
+        <div class="gauge-note">${g.note}</div>
+      `;
+      grid.appendChild(el);
+    });
+  }
+
+  // ---- River & stream gauges (USGS Water Services) ----
+  async function loadRivers(place){
+    const el = $('riverList');
+    try{
+      const bb = milesBBox(place.lat, place.lon, 30);
+      const url = `https://waterservices.usgs.gov/nwis/iv/?format=json&bBox=${bboxStr(bb)}&parameterCd=00065,00060&siteStatus=active`;
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('USGS fetch failed');
+      const data = await r.json();
+      const series = data.value.timeSeries || [];
+      if(!series.length){
+        el.innerHTML = '<div class="empty-note">No USGS stream gauges reporting within about 30 miles of this ZIP.</div>';
+        return;
+      }
+      const sites = {};
+      series.forEach((s) => {
+        const code = s.sourceInfo.siteCode[0].value;
+        if(!sites[code]) sites[code] = {
+          name: s.sourceInfo.siteName,
+          lat: parseFloat(s.sourceInfo.geoLocation.geogLocation.latitude),
+          lon: parseFloat(s.sourceInfo.geoLocation.geogLocation.longitude),
+          code
+        };
+        const paramCode = s.variable.variableCode[0].value;
+        const vals = s.values[0].value;
+        const latest = vals.length ? vals[vals.length - 1] : null;
+        if(!latest) return;
+        if(paramCode === '00065') sites[code].stage = { value: latest.value };
+        if(paramCode === '00060') sites[code].flow = { value: latest.value };
+      });
+      const list = Object.values(sites)
+        .map((s) => ({ ...s, dist: haversineMiles(place.lat, place.lon, s.lat, s.lon) }))
+        .sort((a,b) => a.dist - b.dist)
+        .slice(0, 6);
+      el.innerHTML = '';
+      list.forEach((s) => {
+        const card = document.createElement('div');
+        card.className = 'data-card';
+        card.innerHTML = `
+          <div class="dc-top">
+            <span class="dc-name">${s.name}</span>
+            <span class="dc-meta">${s.dist.toFixed(1)} mi away</span>
+          </div>
+          <div class="dc-detail">
+            ${s.stage ? `Gage height: <strong>${s.stage.value} ft</strong>` : 'Gage height: —'}
+            &nbsp;·&nbsp;
+            ${s.flow ? `Flow: <strong>${Number(s.flow.value).toLocaleString()} cfs</strong>` : 'Flow: —'}
+            &nbsp;·&nbsp;
+            <a href="https://waterdata.usgs.gov/monitoring-location/${s.code}" target="_blank" rel="noopener">USGS site →</a>
+          </div>
+        `;
+        el.appendChild(card);
+      });
+    }catch(err){
+      el.innerHTML = '<div class="empty-note">Stream gauge data is temporarily unavailable.</div>';
+    }
+  }
+
+  // ---- Wildfire perimeters (NIFC / WFIGS) ----
+  async function loadFires(place){
+    const el = $('fireList');
+    try{
+      const bb = milesBBox(place.lat, place.lon, 75);
+      const url = `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&f=geojson`;
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('NIFC fetch failed');
+      const data = await r.json();
+      const feats = data.features || [];
+      if(!feats.length){
+        el.innerHTML = '<div class="empty-note">No active fire perimeters mapped within about 75 miles of this ZIP.</div>';
+        return;
+      }
+      el.innerHTML = '';
+      feats.slice(0, 8).forEach((f) => {
+        const p = f.properties || {};
+        const name = p.poly_IncidentName || p.IncidentName || 'Unnamed incident';
+        const acres = p.poly_GISAcres || p.GISAcres;
+        const contained = p.attr_PercentContained ?? p.PercentContained;
+        const badge = (contained != null && contained < 30) ? 'high' : (contained != null && contained < 75) ? 'mod' : 'low';
+        const card = document.createElement('div');
+        card.className = 'data-card';
+        card.innerHTML = `
+          <div class="dc-top">
+            <span class="dc-name">${name}</span>
+            ${contained != null ? `<span class="badge ${badge}">${contained}% contained</span>` : '<span class="badge info">Active</span>'}
+          </div>
+          <div class="dc-detail">
+            ${acres ? `${Number(acres).toLocaleString(undefined,{maximumFractionDigits:0})} acres` : 'Acreage unavailable'}
+            &nbsp;·&nbsp;
+            <a href="https://inciweb.wildfire.gov/" target="_blank" rel="noopener">InciWeb updates →</a>
+          </div>
+        `;
+        el.appendChild(card);
+      });
+    }catch(err){
+      el.innerHTML = '<div class="empty-note">Wildfire perimeter data is temporarily unavailable.</div>';
+    }
+  }
+
+  // ---- Emergency shelters (FEMA National Shelter System) ----
+  async function loadShelters(place){
+    const el = $('shelterList');
+    try{
+      const bb = milesBBox(place.lat, place.lon, 50);
+      const url = `https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&f=geojson`;
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('FEMA fetch failed');
+      const data = await r.json();
+      const feats = data.features || [];
+      if(!feats.length){
+        el.innerHTML = '<div class="empty-note">No FEMA/Red Cross shelters are currently listed as open within about 50 miles. That\'s normal outside an active disaster.</div>';
+        return;
+      }
+      el.innerHTML = '';
+      feats.slice(0, 8).forEach((f) => {
+        const p = f.properties || {};
+        const name = p.SHELTER_NAME || p.NAME || 'Shelter';
+        const addr = [p.ADDRESS || p.Address, p.CITY || p.City].filter(Boolean).join(', ');
+        const cap = p.EVACUATION_CAPACITY || p.TOTAL_CAPACITY;
+        const card = document.createElement('div');
+        card.className = 'data-card';
+        card.innerHTML = `
+          <div class="dc-top">
+            <span class="dc-name">${name}</span>
+            <span class="badge low">Open</span>
+          </div>
+          <div class="dc-detail">
+            ${addr || 'Address unavailable'}
+            ${cap ? ` &nbsp;·&nbsp; Capacity: ${cap}` : ''}
+          </div>
+        `;
+        el.appendChild(card);
+      });
+    }catch(err){
+      el.innerHTML = '<div class="empty-note">Shelter data is temporarily unavailable.</div>';
+    }
+  }
+
+  // ---- Traffic cameras (static links — WSDOT's live API needs a private key + no CORS) ----
+  const CAMERA_LINKS = [
+    { name: 'I-5 Seattle/Tacoma corridor', url: 'https://wsdot.com/travel/real-time/map/?route=005' },
+    { name: 'I-90 Snoqualmie Pass', url: 'https://wsdot.com/traffic/passes/snoqualmie/' },
+    { name: 'US-2 Stevens Pass', url: 'https://wsdot.com/traffic/passes/stevens/' },
+    { name: 'I-405 Eastside', url: 'https://wsdot.com/travel/real-time/map/?route=405' },
+    { name: 'SR-520 floating bridge', url: 'https://wsdot.com/travel/real-time/map/?route=520' },
+    { name: 'Seattle city cameras', url: 'https://web6.seattle.gov/travelers/' },
+    { name: 'All WSDOT live cameras', url: 'https://wsdot.com/travel/real-time/map/' }
+  ];
+  function renderCameraLinks(){
+    $('cameraLinks').innerHTML = CAMERA_LINKS.map(c => `<a class="btn" href="${c.url}" target="_blank" rel="noopener">${c.name} →</a>`).join('');
+  }
+
+  // ---- Power outages (static links — no free unified statewide feed exists) ----
+  const UTILITY_LINKS = [
+    { name: 'Seattle City Light', url: 'https://www.seattle.gov/city-light/outages' },
+    { name: 'Puget Sound Energy', url: 'https://www.pse.com/en/outage-map' },
+    { name: 'Snohomish County PUD', url: 'https://www.snopud.com/outagemap' },
+    { name: 'Tacoma Power', url: 'https://www.mytpu.org/outages/' },
+    { name: 'Clark Public Utilities', url: 'https://www.clarkpublicutilities.com/outages/' },
+    { name: 'Avista (Spokane area)', url: 'https://www.myavista.com/outage-center/current-outages' }
+  ];
+  function renderUtilityLinks(){
+    $('utilityLinks').innerHTML = UTILITY_LINKS.map(u => `<a class="btn" href="${u.url}" target="_blank" rel="noopener">${u.name} →</a>`).join('');
+  }
+
+  // ---- Notifications ----
+  function getSeen(zip){
+    try{ return JSON.parse(localStorage.getItem('wa-watch-seen-' + zip) || '[]'); }catch(e){ return []; }
+  }
+  function setSeen(zip, ids){
+    localStorage.setItem('wa-watch-seen-' + zip, JSON.stringify(ids));
+  }
+
+  async function pollForNewAlerts(place, zip){
+    try{
+      const alerts = await getAlerts(place.lat, place.lon);
+      const seen = getSeen(zip);
+      const currentIds = alerts.features.map(f => f.id);
+      const newOnes = alerts.features.filter(f => !seen.includes(f.id));
+      if(newOnes.length && Notification.permission === 'granted'){
+        newOnes.forEach(f => {
+          new Notification(`WA Watch: ${f.properties.event}`, {
+            body: f.properties.headline || `New alert for ${place.city}, WA`,
+            icon: 'icons/icon-192.png'
+          });
+        });
+      }
+      setSeen(zip, currentIds);
+    }catch(e){ /* silent fail on poll */ }
+  }
+
+  function startPolling(place, zip){
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(() => pollForNewAlerts(place, zip), 5 * 60 * 1000);
+  }
+
+  $('enableNotif').addEventListener('click', async () => {
+    if(!('Notification' in window)){
+      $('notifyState').textContent = 'Notifications are not supported in this browser.';
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    $('notifyState').textContent = perm === 'granted'
+      ? 'Browser alerts enabled. Keep this tab or installed app open to receive them.'
+      : 'Permission not granted — you can change this in your browser/site settings.';
+  });
+
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    $('installBtn').style.display = 'inline-block';
+  });
+  $('installBtn').addEventListener('click', async () => {
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    $('installBtn').style.display = 'none';
+  });
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  // ---- Main flow ----
+  async function loadZip(zip){
+    clearStatus();
+    setStatus('Loading conditions for ' + zip + '…');
+    app.style.display = 'none';
+    try{
+      const place = await geocodeZip(zip);
+      if(place.state !== 'WA'){
+        setStatus(`${zip} is in ${place.state}, not Washington. WA Watch currently covers Washington State ZIP codes only.`, true);
+        return;
+      }
+      place.zip = zip;
+      const point = await getPoint(place.lat, place.lon);
+      const [alerts, forecast] = await Promise.all([
+        getAlerts(place.lat, place.lon),
+        getForecast(point.properties.forecast)
+      ]);
+
+      clearStatus();
+      app.style.display = 'block';
+      renderHero(place, alerts);
+      renderAlerts(alerts);
+      renderForecast(forecast);
+      renderGauges(forecast);
+      renderCameraLinks();
+      renderUtilityLinks();
+      $('notifyZipLabel').textContent = `${place.city}, WA (${zip})`;
+
+      loadRivers(place);
+      loadFires(place);
+      loadShelters(place);
+
+      setSeen(zip, alerts.features.map(f => f.id));
+      startPolling(place, zip);
+
+      localStorage.setItem('wa-watch-last-zip', zip);
+      history.replaceState(null, '', '#' + zip);
+    }catch(err){
+      setStatus('Could not load data for that ZIP code. Double check it and try again.', true);
+    }
+  }
+
+  $('zipForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const zip = $('zipInput').value.trim();
+    if(!/^\d{5}$/.test(zip)){
+      setStatus('Enter a valid 5-digit ZIP code.', true);
+      return;
+    }
+    loadZip(zip);
+  });
+
+  // Restore last ZIP
+  const hashZip = location.hash.replace('#','');
+  const lastZip = hashZip && /^\d{5}$/.test(hashZip) ? hashZip : localStorage.getItem('wa-watch-last-zip');
+  if(lastZip){
+    $('zipInput').value = lastZip;
+    loadZip(lastZip);
+  }
+})();
+</script>
+</body>
+</html>
