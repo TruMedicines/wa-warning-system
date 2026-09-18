@@ -1,4 +1,4 @@
-const CACHE = 'wa-watch-shell-v1';
+const CACHE = 'wa-watch-shell-v2';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -13,12 +13,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Only cache the app shell. Never cache live API calls so alerts/forecasts/gauges/etc.
-// are always fresh.
+// Never cache live API calls. For same-origin app files, use the server's latest
+// version first and fall back to the cache only when the network is unavailable.
+// This prevents deployed edits from being hidden by a stale service-worker cache.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return; // let API calls pass through untouched
+
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok && event.request.method === 'GET') {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
