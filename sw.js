@@ -1,6 +1,6 @@
-// Update this timestamp whenever the cached app shell changes.
-// A deployment/build step can replace it automatically with the build timestamp.
-const CACHE_VERSION = '2026-09-18T00:00:00Z';
+// Generate a new cache version whenever this service worker is installed.
+// Date.now() is evaluated when the worker script loads, not on every request.
+const CACHE_VERSION = Date.now();
 const CACHE = `wa-watch-shell-${CACHE_VERSION}`;
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
