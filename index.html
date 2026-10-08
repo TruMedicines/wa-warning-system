@@ -375,7 +375,7 @@
             than usual, as the most active storm track sets up further south and east this
             year — though brief, intense bursts of cold, wind, and snow are still expected.
             &nbsp;·&nbsp;
-            <a href="https://www.farmersalmanac.com/farmersalmanac-2026-2027-winter-weather-forecast" target="_blank" rel="noopener">Full regional forecast →</a>
+            <a href="https://www.farmersalmanac.com/farmers-almanac-2026-2027-winter-weather-forecast" target="_blank" rel="noopener">Full regional forecast →</a>
           </div>
         </div>
         <p class="section-note" style="margin:10px 0 0;">
@@ -855,8 +855,8 @@
     $('utilityLinks').innerHTML = UTILITY_LINKS.map(u => `<a class="btn" href="${u.url}" target="_blank" rel="noopener">${u.name} →</a>`).join('');
   }
 
-  async function refreshLocationData(place, zip){
-    try{
+  async function refreshLocationData(place, zip) {
+    try {
       const point = await getPoint(place.lat, place.lon);
       const [alerts, forecast] = await Promise.all([
         getAlerts(place.lat, place.lon),
@@ -869,7 +869,7 @@
       renderGauges(forecast);
       setSeen(zip, alerts.features.map(f => f.id));
       return { alerts, forecast };
-    }catch(err){
+    } catch (err) {
       return null;
     }
   }
@@ -898,7 +898,7 @@
       }
 
       const refreshed = await refreshLocationData(place, zip);
-      if(refreshed){
+      if (refreshed) {
         currentPlace = place;
       }
       setSeen(zip, currentIds);
@@ -907,7 +907,7 @@
 
   function startPolling(place, zip){
     if(pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(() => pollForNewAlerts(place, zip), 5 * 60 * 1000);
+    pollTimer = setInterval(() => pollForNewAlerts(place, zip), 60 * 1000);
   }
 
   $('enableNotif').addEventListener('click', async () => {
