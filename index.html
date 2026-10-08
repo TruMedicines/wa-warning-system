@@ -401,7 +401,7 @@
       <button class="section-toggle" type="button"><span class="section-title">Get alerts</span><span class="chevron">▾</span></button>
       <div class="section-body">
         <div class="notify-box">
-          <p>Turn on browser notifications to get pushed alerts for <strong id="notifyZipLabel">this ZIP</strong> while WA Watch is open in a tab, or installed to your home screen. New NWS alerts are pushed as browser notifications while the page is open.</p>
+          <p>Turn on browser notifications to get pushed alerts for <strong id="notifyZipLabel">this ZIP</strong> while WA Watch is open in a tab, or installed to your home screen. New NWS alerts are what trigger notifications.</p>
           <div class="btn-row">
             <button class="btn primary" id="enableNotif">Enable browser alerts</button>
             <button class="btn" id="installBtn" style="display:none;">Add to home screen</button>
@@ -752,7 +752,7 @@
     const el = $('fireList');
     try{
       const bb = milesBBox(place.lat, place.lon, 75);
-      const url = `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=true&f=json`;
+      const url = `https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outSR=4326&f=json`;
       const r = await fetch(url);
       if(!r.ok) throw new Error('NIFC fetch failed');
       const data = await r.json();
@@ -793,7 +793,7 @@
     const el = $('shelterList');
     try{
       const bb = milesBBox(place.lat, place.lon, 50);
-      const url = `https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=true&f=json`;
+      const url = `https://gis.fema.gov/arcgis/rest/services/NSS/OpenShelters/MapServer/0/query?where=1%3D1&outFields=*&geometry=${bboxStr(bb)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outSR=4326&f=json`;
       const r = await fetch(url);
       if(!r.ok) throw new Error('FEMA fetch failed');
       const data = await r.json();
@@ -847,8 +847,8 @@
     { name: 'Puget Sound Energy', url: 'https://www.pse.com/en/outage/outage-map' },
     { name: 'Snohomish County PUD', url: 'https://www.snopud.com/outagemap' },
     { name: 'Tacoma Power', url: 'https://www.mytpu.org/outages-safety/power-outages/' },
-    { name: 'Clark Public Utilities', url: 'https://www.clarkpublicutilities.com/outages/' },
-    { name: 'Avista (Spokane area)', url: 'https://www.myavista.com/outage-center/current-outages' }
+    { name: 'Clark Public Utilities', url: 'https://www.clarkpublicutilities.com/outages-safety/' },
+    { name: 'Avista (Spokane area)', url: 'https://outagemap.myavista.com/' }
   ];
   function renderUtilityLinks(){
     $('utilityLinks').innerHTML = UTILITY_LINKS.map(u => `<a class="btn" href="${u.url}" target="_blank" rel="noopener">${u.name} →</a>`).join('');
